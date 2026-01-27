@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>SISTEMA DE GESTÃO DE CIRURGIAS ELETIVAS</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+      html {
+        font-family: "Inter", sans-serif;
+      }
+
+      .tab-btn {
+        border-bottom-width: 4px;
+        border-bottom-style: solid;
+        border-bottom-color: transparent;
+        opacity: 0.8;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      .tab-btn.tab-active {
+        border-bottom-color: currentColor;
+        opacity: 1;
+        transform: translateY(0);
+        font-weight: 700;
+      }
+      .tab-btn:not(.tab-active) {
+        transform: translateY(2px);
+      }
+
+      @keyframes blink-alert {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+          border-color: transparent;
+        }
+        50% {
+          box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.4);
+          border-color: #dc2626;
+        }
+      }
+      .blink-active {
+        animation: blink-alert 1.5s ease-in-out infinite;
+        color: #c53030 !important;
+        border: 1px solid #c53030;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+
+      .selected-row {
+        background-color: #fef08a !important; /* Amarelo suave */
+        border-left: 4px solid #ca8a04;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-green-50 min-h-screen font-sans transition-colors duration-300"
+  >
+    <div class="max-w-7xl mx-auto p-6 pb-16">
+      <div class="flex items-center justify-center gap-3 mb-6">
+        <svg
+          id="mainIcon"
+          xmlns="http://www.w3.org/2000/svg"
+          class="w-10 h-10 transition-colors duration-300"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="1.8"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h-2m2 4h-2"
+          />
+        </svg>
+        <h1
+          id="mainTitle"
+          class="text-3xl font-bold transition-colors duration-300"
+        >
+          SISTEMA DE GESTÃO DE CIRURGIAS ELETIVAS
+        </h1>
+      </div>
+
+      <div class="flex flex-wrap gap-3 mb-4 items-center">
+        <label
+          id="lblCNES"
+          class="group flex items-center gap-2 bg-white px-3 py-2 rounded-lg shadow cursor-pointer transition text-gray-800 hover:shadow-lg"
+        >
+          <input id="inputCNESFile" type="file" accept=".json" class="hidden" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="w-5 h-5 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 16l4-5h-3V4h-2v7H8l4 5zm6 2H6a2 2 0 01-2-2v-1h16v1a2 2 0 01-2 2z"
+            />
+          </svg>
+          <span class="text-sm font-medium">Importar CNES</span>
+        </label>
+
+        <label
+          id="lblSIGTAP"
+          class="group flex items-center gap-2 bg-white px-3 py-2 rounded-lg shadow cursor-pointer transition text-gray-800 hover:shadow-lg"
+        >
+          <input
+            id="inputSIGTAPFile"
+            type="file"
+            accept=".json"
+            class="hidden"
+          />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="w-5 h-5 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 16l4-5h-3V4h-2v7H8l4 5zm6 2H6a2 2 0 01-2-2v-1h16v1a2 2 0 01-2 2z"
+            />
+          </svg>
+          <span class="text-sm font-medium">Importar SIGTAP</span>
+        </label>
+
+        <button
+          id="btnExportar"
+          class="ml-auto bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2 font-medium shadow-md"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="w-4 h-4 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M8 7h8m-8 4h8m-8 4h5M5 4h14a2 2 0 012 2v11a4 4 0 01-4 4H7a4 4 0 01-4-4V6a2 2 0 012-2z"
+            />
+          </svg>
+          Exportar Proposta (ZIP)
+        </button>
+
+        <button
+          id="btnExportarPDF"
+          class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition flex items-center gap-2 font-medium shadow-md"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="w-4 h-4 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M8 7h8m-8 4h8m-8 4h5M5 4h14a2 2 0 012 2v11a4 4 0 01-4 4H7a4 4 0 01-4-4V6a2 2 0 012-2z"
+            />
+          </svg>
+          Exportar PDF
+        </button>
+      </div>
+
+      <div
+        class="bg-white shadow-xl rounded-2xl p-6 mb-8 border border-blue-100"
+      >
+        <div class="flex flex-wrap gap-2 mb-4">
+          <button
+            type="button"
+            class="tab-btn px-3 py-2 rounded-t-lg text-xs sm:text-sm font-semibold bg-red-50 text-red-700 shadow-sm"
+            data-tipo="credito"
+          >
+            Crédito Financeiro
+          </button>
+          <button
+            type="button"
+            class="tab-btn px-3 py-2 rounded-t-lg text-xs sm:text-sm font-semibold bg-yellow-50 text-yellow-700 shadow-sm"
+            data-tipo="parcela"
+          >
+            Parcela Única
+          </button>
+          <button
+            type="button"
+            class="tab-btn px-3 py-2 rounded-t-lg text-xs sm:text-sm font-semibold bg-blue-50 text-blue-700 shadow-sm"
+            data-tipo="emenda"
+          >
+            Emenda Parlamentar
+          </button>
+          <button
+            type="button"
+            class="tab-btn tab-active px-3 py-2 rounded-t-lg text-xs sm:text-sm font-semibold bg-green-600 text-white shadow-sm"
+            data-tipo="convencional"
+          >
+            Convencional
+          </button>
+        </div>
+
+        <h2
+          id="tituloCadastro"
+          class="text-xl font-bold mb-4 border-b-2 border-blue-100 pb-2 transition-colors duration-300"
+        >
+          Cadastro de Proposta
+          <span
+            id="tituloCadastroTipo"
+            class="ml-2 text-sm font-semibold align-middle"
+          ></span>
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div class="flex flex-col">
+            <label class="block text-sm font-medium text-gray-700"
+              >Estabelecimento</label
+            >
+            <input
+              id="estabelecimento"
+              list="listaEstab"
+              type="text"
+              class="mt-1 w-full rounded-md border border-gray-300 shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Digite ou selecione estabelecimento"
+            />
+            <datalist id="listaEstab"></datalist>
+            <label
+              class="mt-2 inline-flex items-center gap-2 text-sm text-gray-600"
+            >
+              <input
+                id="manterEstab"
+                type="checkbox"
+                class="accent-blue-700 rounded"
+              />
+              Manter estabelecimento
+            </label>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">CNES</label
+            ><input
+              id="cnes"
+              type="text"
+              class="mt-1 w-full rounded-md border-gray-300 shadow-sm bg-gray-100 p-2 opacity-80"
+              readonly
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Região</label
+            ><input
+              id="regiao"
+              type="text"
+              class="mt-1 w-full rounded-md border-gray-300 shadow-sm bg-gray-100 p-2 opacity-80"
+              readonly
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700"
+              >Município</label
+            ><input
+              id="municipio"
+              type="text"
+              class="mt-1 w-full rounded-md border-gray-300 shadow-sm bg-gray-100 p-2 opacity-80"
+              readonly
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Gestão</label
+            ><input
+              id="gestao"
+              type="text"
+              class="mt-1 w-full rounded-md border-gray-300 shadow-sm bg-gray-100 p-2 opacity-80"
+              readonly
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Código</label
+            ><input
+              id="codigo"
+              type="text"
+              class="mt-1 w-full rounded-md border-gray-300 shadow-sm bg-gray-100 p-2 opacity-80"
+              readonly
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700"
+              >Procedimento</label
+            >
+            <input
+              id="procedimento"
+              list="listaProc"
+              type="text"
+              class="mt-1 w-full rounded-md border border-gray-300 shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Digite ou selecione procedimento"
+            />
+            <datalist id="listaProc"></datalist>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700"
+              >Instrumento de Registro</label
+            ><input
+              id="instrumento"
+              type="text"
+              class="mt-1 w-full rounded-md border-gray-300 shadow-sm bg-gray-100 p-2 opacity-80"
+              readonly
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700"
+              >Quantidade</label
+            ><input
+              id="quantidade"
+              type="number"
+              min="1"
+              value="1"
+              class="mt-1 w-full rounded-md border border-gray-300 shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700"
+              >Incremento (%)</label
+            ><select
+              id="incremento"
+              class="mt-1 w-full rounded-md border border-gray-300 shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+            ></select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700"
+              >Valor Total (R$)</label
+            ><input
+              id="valor"
+              type="text"
+              class="mt-1 w-full rounded-md border-gray-300 shadow-sm bg-gray-100 p-2 font-bold text-lg text-blue-900 opacity-80"
+              readonly
+            />
+          </div>
+        </div>
+
+        <div class="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <button
+            id="btnCadastrar"
+            class="w-full flex justify-center items-center px-4 py-2 rounded-lg font-semibold shadow-md transition order-1"
+          >
+            Cadastrar
+          </button>
+          <button
+            id="btnEditar"
+            disabled
+            class="w-full flex justify-center items-center px-4 py-2 rounded-lg font-semibold shadow-md transition order-2"
+          >
+            Editar
+          </button>
+          <button
+            id="btnExcluir"
+            disabled
+            class="w-full flex justify-center items-center px-4 py-2 rounded-lg font-semibold shadow-md transition order-3"
+          >
+            Excluir
+          </button>
+          <button
+            id="btnLimpar"
+            disabled
+            class="w-full flex justify-center items-center px-4 py-2 rounded-lg font-semibold shadow-md transition order-4"
+          >
+            Limpar Campos
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-white shadow-xl rounded-2xl p-6 border border-blue-100">
+        <div
+          class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4"
+        >
+          <h2
+            id="tituloTabela"
+            class="text-xl font-bold border-b-2 border-blue-100 pb-2 mb-2 sm:mb-0 transition-colors duration-300"
+          >
+            Propostas Cadastradas
+            <span
+              id="tituloTabelaTipo"
+              class="ml-2 text-sm font-semibold align-middle"
+            ></span>
+          </h2>
+          <div class="text-sm text-gray-700 flex flex-wrap gap-4">
+            <span
+              ><strong>Códigos únicos:</strong>
+              <span id="sumCodigos" class="font-bold text-blue-800"
+                >0</span
+              ></span
+            >
+            <span
+              ><strong>Total procedimentos:</strong>
+              <span id="sumQtd" class="font-bold text-blue-800">0</span></span
+            >
+            <span
+              ><strong>Soma valores:</strong>
+              <span id="sumValor" class="font-bold text-blue-800"
+                >R$ 0,00</span
+              ></span
+            >
+          </div>
+        </div>
+        <div class="overflow-x-auto rounded-lg border border-gray-300">
+          <table id="tabela" class="min-w-full text-sm text-center">
+            <thead
+              id="tabelaHead"
+              class="bg-blue-600 text-white transition-colors duration-300"
+            >
+              <tr>
+                <th class="p-3 border-r border-blue-400">Estabelecimento</th>
+                <th class="p-3 border-r border-blue-400">CNES</th>
+                <th class="p-3 border-r border-blue-400">Região</th>
+                <th class="p-3 border-r border-blue-400">Município</th>
+                <th class="p-3 border-r border-blue-400">Gestão</th>
+                <th class="p-3 border-r border-blue-400">Código</th>
+                <th class="p-3 border-r border-blue-400">Procedimento</th>
+                <th class="p-3 border-r border-blue-400">Instrumento</th>
+                <th class="p-3 border-r border-blue-400">Quantidade</th>
+                <th class="p-3 border-r border-blue-400">Incremento</th>
+                <th class="p-3">Valor Total (R$)</th>
+              </tr>
+            </thead>
+            <tbody id="tbody" class="divide-y divide-gray-200"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <footer
+      class="fixed inset-x-0 bottom-0 z-10 py-4 text-center text-sm text-gray-500 bg-white border-t border-gray-200 shadow-xl"
+    >
+      <p>&copy; 2025 Gustavo Araújo - Sanitarista</p>
+    </footer>
+
+    <div
+      id="custom-dialog-backdrop"
+      class="fixed inset-0 bg-gray-900 bg-opacity-70 z-50 hidden transition-opacity duration-300"
+    >
+      <div
+        id="custom-dialog"
+        class="bg-white rounded-xl shadow-2xl p-6 m-4 max-w-sm mx-auto my-20 transform scale-95 opacity-0 transition-all duration-300"
+      >
+        <h3 id="dialog-title" class="text-xl font-bold text-blue-700 mb-4">
+          Título
+        </h3>
+        <p id="dialog-message" class="text-gray-700 mb-6 leading-relaxed">
+          Mensagem
+        </p>
+        <div id="dialog-actions" class="flex justify-end gap-3"></div>
+      </div>
+    </div>
+
+    <script>
+      /* --- VARS --- */
+      let cnesData = [];
+      let sigtapData = [];
+      let primeiroAvisoCadastro = true;
+      let abaAtual = "convencional";
+      let selecionado = null;
+      const cadastrosPorAba = {
+        credito: [],
+        parcela: [],
+        emenda: [],
+        convencional: [],
+      };
+      const labelsAbas = {
+        credito: "Crédito Financeiro",
+        parcela: "Parcela Única",
+        emenda: "Emenda Parlamentar",
+        convencional: "Convencional",
+      };
+
+      /* --- UTILITÁRIOS --- */
+      function normalizeKeyString(str) {
+        return String(str)
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .trim()
+          .replace(/\s+/g, "_")
+          .replace(/[^A-Z0-9_]/gi, "")
+          .replace(/^_+|_+$/g, "")
+          .toUpperCase();
+      }
+      function normalizeKeys(obj) {
+        const out = {};
+        for (const k in obj) out[normalizeKeyString(k)] = obj[k];
+        return out;
+      }
+
+      // --- CONVERSÃO DE VALORES SEPARADA ---
+
+      // 1. Para ler do JSON (Formato US: 1,322.12 -> vírgula é milhar, ponto é decimal)
+      function parseJsonNumber(v) {
+        if (!v) return 0;
+        let s = String(v).trim();
+        s = s.replace("R$", "").replace(/\s/g, "");
+        s = s.replace(/,/g, ""); // Remove todas as vírgulas
+        return parseFloat(s) || 0;
+      }
+
+      // 2. Para ler da Tela (Formato BR: 1.322,12 -> ponto é milhar, vírgula é decimal)
+      function parseBrNumber(v) {
+        if (!v) return 0;
+        let s = String(v).trim();
+        s = s.replace("R$", "").replace(/\s/g, "");
+        s = s.replace(/\./g, ""); // Remove pontos de milhar
+        s = s.replace(",", "."); // Troca vírgula por ponto decimal
+        return parseFloat(s) || 0;
+      }
+
+      function formatCurrency(v) {
+        return v.toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        });
+      }
+
+      /* --- MODAL --- */
+      const dialogBackdrop = document.getElementById("custom-dialog-backdrop");
+      const dialogElement = document.getElementById("custom-dialog");
+      const dialogTitle = document.getElementById("dialog-title");
+      const dialogMessage = document.getElementById("dialog-message");
+      const dialogActions = document.getElementById("dialog-actions");
+      function closeModal() {
+        dialogElement.classList.remove("scale-100", "opacity-100");
+        dialogElement.classList.add("scale-95", "opacity-0");
+        dialogBackdrop.classList.add("hidden");
+        dialogActions.innerHTML = "";
+      }
+      function showModal(title, message, buttons) {
+        return new Promise((resolve) => {
+          dialogTitle.textContent = title;
+          dialogMessage.textContent = message;
+          dialogActions.innerHTML = "";
+          buttons.forEach((btn) => {
+            const button = document.createElement("button");
+            button.textContent = btn.text;
+            button.className = btn.className;
+            button.onclick = () => {
+              closeModal();
+              resolve(btn.value);
+            };
+            dialogActions.appendChild(button);
+          });
+          dialogBackdrop.classList.remove("hidden");
+          setTimeout(() => {
+            dialogElement.classList.remove("scale-95", "opacity-0");
+            dialogElement.classList.add("scale-100", "opacity-100");
+          }, 10);
+        });
+      }
+      function showDialog(title, message) {
+        return showModal(title, message, [
+          {
+            text: "OK",
+            className:
+              "bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium",
+            value: true,
+          },
+        ]);
+      }
+      function showConfirm(title, message) {
+        return showModal(title, message, [
+          {
+            text: "Cancelar",
+            className:
+              "bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400 transition font-medium",
+            value: false,
+          },
+          {
+            text: "Confirmar",
+            className:
+              "bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition font-medium",
+            value: true,
+          },
+        ]);
+      }
+
+      /* --- TEMA --- */
+      const temaPorAba = {
+        credito: {
+          bodyBg: "bg-red-50",
+          titleTextClass: "text-red-800",
+          iconTextClass: "text-red-600",
+          cadastroTitleTextClass: "text-red-700",
+          cadastroTipoTextClass: "text-red-700",
+          tabelaTitleTextClass: "text-red-700",
+          tabelaTipoTextClass: "text-red-700",
+          tableHeadBgClass: "bg-red-600",
+        },
+        parcela: {
+          bodyBg: "bg-yellow-50",
+          titleTextClass: "text-yellow-800",
+          iconTextClass: "text-yellow-500",
+          cadastroTitleTextClass: "text-yellow-700",
+          cadastroTipoTextClass: "text-yellow-700",
+          tabelaTitleTextClass: "text-yellow-700",
+          tabelaTipoTextClass: "text-yellow-700",
+          tableHeadBgClass: "bg-yellow-500",
+        },
+        emenda: {
+          bodyBg: "bg-blue-50",
+          titleTextClass: "text-blue-900",
+          iconTextClass: "text-blue-600",
+          cadastroTitleTextClass: "text-blue-700",
+          cadastroTipoTextClass: "text-blue-700",
+          tabelaTitleTextClass: "text-blue-700",
+          tabelaTipoTextClass: "text-blue-700",
+          tableHeadBgClass: "bg-blue-600",
+        },
+        convencional: {
+          bodyBg: "bg-green-50",
+          titleTextClass: "text-green-900",
+          iconTextClass: "text-green-600",
+          cadastroTitleTextClass: "text-green-700",
+          cadastroTipoTextClass: "text-green-700",
+          tabelaTitleTextClass: "text-green-700",
+          tabelaTipoTextClass: "text-green-700",
+          tableHeadBgClass: "bg-green-600",
+        },
+      };
+      const coresAntigas = {
+        bg: ["bg-red-50", "bg-yellow-50", "bg-blue-50", "bg-green-50"],
+        textTitle: [
+          "text-red-800",
+          "text-yellow-800",
+          "text-blue-900",
+          "text-green-900",
+        ],
+        textIcon: [
+          "text-red-600",
+          "text-yellow-500",
+          "text-blue-600",
+          "text-green-600",
+        ],
+        textSub: [
+          "text-red-700",
+          "text-yellow-700",
+          "text-blue-700",
+          "text-green-700",
+        ],
+        bgHead: ["bg-red-600", "bg-yellow-500", "bg-blue-600", "bg-green-600"],
+      };
+
+      function aplicarTemaAba() {
+        const tema = temaPorAba[abaAtual];
+        const body = document.body;
+        body.classList.remove(...coresAntigas.bg);
+        body.classList.add(tema.bodyBg);
+        const mainTitle = document.getElementById("mainTitle");
+        mainTitle.classList.remove(...coresAntigas.textTitle);
+        mainTitle.classList.add(tema.titleTextClass);
+        const mainIcon = document.getElementById("mainIcon");
+        mainIcon.classList.remove(...coresAntigas.textIcon);
+        mainIcon.classList.add(tema.iconTextClass);
+        [
+          "tituloCadastro",
+          "tituloCadastroTipo",
+          "tituloTabela",
+          "tituloTabelaTipo",
+        ].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.classList.remove(...coresAntigas.textSub);
+            el.classList.add(tema.cadastroTitleTextClass);
+          }
+        });
+        const thead = document.getElementById("tabelaHead");
+        thead.classList.remove(...coresAntigas.bgHead);
+        thead.classList.add(tema.tableHeadBgClass);
+        document.querySelectorAll(".tab-btn").forEach((btn) => {
+          const tipo = btn.dataset.tipo;
+          const isActive = tipo === abaAtual;
+          btn.className =
+            "tab-btn px-3 py-2 rounded-t-lg text-xs sm:text-sm font-semibold shadow-sm transition-all";
+          if (isActive) {
+            btn.classList.add("tab-active", "text-white");
+            if (tipo === "credito") btn.classList.add("bg-red-600");
+            else if (tipo === "parcela") btn.classList.add("bg-yellow-500");
+            else if (tipo === "emenda") btn.classList.add("bg-blue-600");
+            else btn.classList.add("bg-green-600");
+          } else {
+            if (tipo === "credito")
+              btn.classList.add("bg-red-50", "text-red-700");
+            else if (tipo === "parcela")
+              btn.classList.add("bg-yellow-50", "text-yellow-700");
+            else if (tipo === "emenda")
+              btn.classList.add("bg-blue-50", "text-blue-700");
+            else btn.classList.add("bg-green-50", "text-green-700");
+          }
+        });
+        document.getElementById(
+          "tituloCadastroTipo"
+        ).textContent = `(${labelsAbas[abaAtual]})`;
+        document.getElementById(
+          "tituloTabelaTipo"
+        ).textContent = `(${labelsAbas[abaAtual]})`;
+      }
+
+      /* --- GESTÃO DE BOTÕES --- */
+      const btnCadastrar = document.getElementById("btnCadastrar");
+      const btnEditar = document.getElementById("btnEditar");
+      const btnExcluir = document.getElementById("btnExcluir");
+      const btnLimpar = document.getElementById("btnLimpar");
+      const inputsToCheck = ["estabelecimento", "procedimento", "quantidade"];
+
+      function atualizarEstadoBotoes() {
+        const algumDado = inputsToCheck.some(
+          (id) => document.getElementById(id).value.trim() !== ""
+        );
+        btnLimpar.disabled = !algumDado;
+        if (algumDado) {
+          btnLimpar.className =
+            "w-full flex justify-center items-center px-4 py-2 rounded-lg font-semibold shadow-md transition order-4 bg-blue-600 text-white hover:bg-blue-700";
+        } else {
+          btnLimpar.className =
+            "w-full flex justify-center items-center px-4 py-2 rounded-lg font-semibold shadow-md transition order-4 bg-gray-300 text-gray-500 cursor-not-allowed";
+        }
+
+        if (selecionado !== null) {
+          btnCadastrar.disabled = true;
+          btnCadastrar.className =
+            "w-full flex justify-center items-center px-4 py-2 rounded-lg font-semibold shadow-md transition order-1 bg-gray-300 text-gray-500 cursor-not-allowed";
+          btnEditar.disabled = false;
+          btnEditar.className =
+            "w-full flex justify-center items-center px-4 py-2 rounded-lg font-semibold shadow-md transition order-2 bg-yellow-600 text-white hover:bg-yellow-700";
+          btnExcluir.disabled = false;
+          btnExcluir.className =
+            "w-full flex justify-center items-center px-4 py-2 rounded-lg font-semibold shadow-md transition order-3 bg-red-600 text-white hover:bg-red-700";
+        } else {
+          btnCadastrar.disabled = false;
+          btnCadastrar.className =
+            "w-full flex justify-center items-center px-4 py-2 rounded-lg font-semibold shadow-md transition order-1 bg-green-600 text-white hover:bg-green-700";
+          btnEditar.disabled = true;
+          btnEditar.className =
+            "w-full flex justify-center items-center px-4 py-2 rounded-lg font-semibold shadow-md transition order-2 bg-gray-300 text-gray-500 cursor-not-allowed";
+          btnExcluir.disabled = true;
+          btnExcluir.className =
+            "w-full flex justify-center items-center px-4 py-2 rounded-lg font-semibold shadow-md transition order-3 bg-gray-300 text-gray-500 cursor-not-allowed";
+        }
+      }
+      inputsToCheck.forEach((id) =>
+        document
+          .getElementById(id)
+          .addEventListener("input", atualizarEstadoBotoes)
+      );
+
+      /* --- LÓGICA DE INCREMENTO --- */
+      function gerarOpcoesIncremento(maxVal) {
+        let options = [maxVal];
+        let start = Math.floor(maxVal / 50) * 50;
+        for (let i = start; i >= 0; i -= 50) {
+          if (i !== maxVal) {
+            options.push(i);
+          }
+        }
+        return options;
+      }
+
+      function setIncrementOptions(opts) {
+        const s = document.getElementById("incremento");
+        s.innerHTML = "";
+        opts.forEach((o) => {
+          const op = document.createElement("option");
+          op.value = o;
+          op.textContent = o + "%";
+          s.appendChild(op);
+        });
+      }
+
+      function atualizaOpcoesIncrementoDefault() {
+        setIncrementOptions([0]);
+      }
+
+      /* --- IMPORTAÇÃO --- */
+      document
+        .getElementById("inputCNESFile")
+        .addEventListener("change", (e) => {
+          const f = e.target.files[0];
+          if (!f) return;
+          const r = new FileReader();
+          r.onload = (ev) => {
+            try {
+              const d = JSON.parse(ev.target.result);
+              cnesData = Array.isArray(d)
+                ? d.map(normalizeKeys)
+                : [normalizeKeys(d)];
+              const lbl = document.getElementById("lblCNES");
+              lbl.className =
+                "group flex items-center gap-2 px-3 py-2 rounded-lg shadow cursor-pointer transition bg-green-600 text-white hover:shadow-lg";
+              lbl.querySelector("svg").classList.add("text-white");
+              lbl.classList.remove("blink-active");
+              showDialog(
+                "Sucesso",
+                `CNES importado: ${cnesData.length} registros.`
+              );
+              limparCampos();
+            } catch (err) {
+              showDialog("Erro", "Erro CNES: " + err.message);
+            }
+          };
+          r.readAsText(f);
+        });
+
+      document
+        .getElementById("inputSIGTAPFile")
+        .addEventListener("change", (e) => {
+          const f = e.target.files[0];
+          if (!f) return;
+          const r = new FileReader();
+          r.onload = (ev) => {
+            try {
+              const d = JSON.parse(ev.target.result);
+              sigtapData = Array.isArray(d)
+                ? d.map(normalizeKeys)
+                : [normalizeKeys(d)];
+              const lbl = document.getElementById("lblSIGTAP");
+              lbl.className =
+                "group flex items-center gap-2 px-3 py-2 rounded-lg shadow cursor-pointer transition bg-green-600 text-white hover:shadow-lg";
+              lbl.querySelector("svg").classList.add("text-white");
+              lbl.classList.remove("blink-active");
+              const dl = document.getElementById("listaProc");
+              dl.innerHTML = "";
+              const unicos = [
+                ...new Set(
+                  sigtapData.map((x) =>
+                    (x.PROCEDIMENTO || "").toString().trim()
+                  )
+                ),
+              ].sort();
+              unicos.forEach((nome) => {
+                if (nome) {
+                  const opt = document.createElement("option");
+                  opt.value = nome;
+                  dl.appendChild(opt);
+                }
+              });
+              showDialog(
+                "Sucesso",
+                `SIGTAP importado: ${sigtapData.length} registros.`
+              );
+              limparCampos();
+            } catch (err) {
+              showDialog("Erro", "Erro SIGTAP: " + err.message);
+            }
+          };
+          r.readAsText(f);
+        });
+
+      /* --- PREENCHIMENTO --- */
+      const inputEstab = document.getElementById("estabelecimento");
+      inputEstab.addEventListener("input", () => {
+        const val = inputEstab.value.toUpperCase();
+        const dl = document.getElementById("listaEstab");
+        dl.innerHTML = "";
+        if (val.length < 2 || cnesData.length === 0) return;
+        cnesData
+          .filter((i) => (i.ESTABELECIMENTO || "").toUpperCase().includes(val))
+          .slice(0, 50)
+          .forEach((i) => {
+            const opt = document.createElement("option");
+            opt.value = i.ESTABELECIMENTO;
+            dl.appendChild(opt);
+          });
+        atualizarEstadoBotoes();
+      });
+
+      inputEstab.addEventListener("change", () => {
+        const val = inputEstab.value.trim().toUpperCase();
+        const found = cnesData.find(
+          (x) =>
+            (x.ESTABELECIMENTO || "").toString().trim().toUpperCase() === val
+        );
+        if (found) {
+          document.getElementById("cnes").value = found.CNES || "";
+          document.getElementById("municipio").value = found.MUNICIPIO || "";
+          document.getElementById("gestao").value = found.GESTAO || "";
+          document.getElementById("regiao").value =
+            found.REGIAO_DE_SAUDE || found.REGIAO || "";
+        } else {
+          ["cnes", "municipio", "gestao", "regiao", "codigo"].forEach(
+            (id) => (document.getElementById(id).value = "")
+          );
+        }
+        atualizarEstadoBotoes();
+      });
+
+      const inputProc = document.getElementById("procedimento");
+      inputProc.addEventListener("change", () => {
+        const val = inputProc.value.trim();
+        const found = sigtapData.find(
+          (x) => (x.PROCEDIMENTO || "").toString().trim() === val
+        );
+        if (found) {
+          document.getElementById("instrumento").value =
+            found.INSTRUMENTO_DE_REGISTRO || "";
+          document.getElementById("codigo").value =
+            found.CODIGO || found["CÓDIGO"] || "";
+
+          procSelecionado = found;
+
+          const incStr =
+            found["INCREMENTO_%"] ||
+            found.INCREMENTO ||
+            found["INCREMENTO_(%)"] ||
+            "0";
+          let maxInc = parseInt(incStr) || 0;
+
+          const opcoes = gerarOpcoesIncremento(maxInc);
+          setIncrementOptions(opcoes);
+          document.getElementById("incremento").value = maxInc;
+        } else {
+          document.getElementById("instrumento").value = "";
+          document.getElementById("codigo").value = "";
+          procSelecionado = null;
+          atualizaOpcoesIncrementoDefault();
+        }
+        atualizarCalculo();
+        atualizarEstadoBotoes();
+      });
+
+      let procSelecionado = null;
+      function atualizarCalculo() {
+        if (!procSelecionado) {
+          document.getElementById("valor").value = "";
+          return;
+        }
+        const qtd = parseInt(document.getElementById("quantidade").value) || 0;
+        const inc = parseInt(document.getElementById("incremento").value) || 0;
+
+        // CORREÇÃO 1: Usar parseJsonNumber pois vem do SIGTAP
+        const vlBase = parseJsonNumber(procSelecionado.VALOR);
+
+        document.getElementById("valor").value = formatCurrency(
+          qtd * vlBase * (1 + inc / 100)
+        );
+      }
+      document.getElementById("quantidade").addEventListener("input", () => {
+        atualizarCalculo();
+        atualizarEstadoBotoes();
+      });
+      document
+        .getElementById("incremento")
+        .addEventListener("change", atualizarCalculo);
+
+      /* --- BLINK --- */
+      function verificarImportacao(e) {
+        if (cnesData.length === 0 || sigtapData.length === 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (document.activeElement) document.activeElement.blur();
+          showDialog(
+            "Importação Necessária",
+            "É necessário importar os arquivos CNES e SIGTAP antes de preencher os campos."
+          ).then(() => {
+            const l1 = document.getElementById("lblCNES"),
+              l2 = document.getElementById("lblSIGTAP");
+            if (!l1.classList.contains("bg-green-600"))
+              l1.classList.add("blink-active");
+            if (!l2.classList.contains("bg-green-600"))
+              l2.classList.add("blink-active");
+            setTimeout(() => {
+              l1.classList.remove("blink-active");
+              l2.classList.remove("blink-active");
+            }, 5000);
+          });
+        }
+      }
+      [
+        "estabelecimento",
+        "procedimento",
+        "quantidade",
+        "incremento",
+        "manterEstab",
+      ].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener("focus", verificarImportacao);
+          el.addEventListener("mousedown", verificarImportacao);
+        }
+      });
+
+      function limparCampos() {
+        if (!document.getElementById("manterEstab").checked) {
+          inputEstab.value = "";
+          ["cnes", "regiao", "municipio", "gestao", "codigo"].forEach(
+            (id) => (document.getElementById(id).value = "")
+          );
+        }
+        inputProc.value = "";
+        document.getElementById("instrumento").value = "";
+        if (!inputProc.value) document.getElementById("codigo").value = "";
+
+        document.getElementById("quantidade").value = "1";
+        document.getElementById("valor").value = "";
+        procSelecionado = null;
+        selecionado = null;
+
+        atualizaOpcoesIncrementoDefault();
+        atualizarEstadoBotoes();
+        atualizarTabela();
+      }
+      document
+        .getElementById("btnLimpar")
+        .addEventListener("click", limparCampos);
+
+      btnCadastrar.addEventListener("click", async () => {
+        if (primeiroAvisoCadastro) {
+          await showDialog(
+            "Aviso Importante",
+            "Por se tratar de um sistema sem servidor, as informações permanecem disponíveis apenas enquanto esta aba estiver aberta. Ao fechar a aba, os dados não salvos serão perdidos.\n\nAssim, realize o cadastro de todas as propostas de execução de procedimentos e, somente após a finalização, exporte o arquivo ZIP."
+          );
+          primeiroAvisoCadastro = false;
+        }
+        if (cnesData.length === 0 || sigtapData.length === 0)
+          return showDialog("Atenção", "Importe os arquivos antes.");
+
+        const est = inputEstab.value,
+          proc = inputProc.value,
+          cnes = document.getElementById("cnes").value;
+        const val = document.getElementById("valor").value;
+
+        if (!est || !proc || !val)
+          return showDialog("Atenção", "Preencha todos os campos.");
+
+        const duplicado = cadastrosPorAba[abaAtual].some(
+          (item) => item.cnes === cnes && item.procedimento === proc
+        );
+        if (duplicado)
+          return showDialog(
+            "Duplicidade",
+            "Este procedimento já foi cadastrado para este estabelecimento na aba atual!"
+          );
+
+        const inc = parseInt(document.getElementById("incremento").value);
+
+        // CORREÇÃO 2: Usar parseBrNumber pois 'val' vem do input (formato BR)
+        const valNum = parseBrNumber(val);
+
+        cadastrosPorAba[abaAtual].push({
+          id: Date.now(),
+          estabelecimento: est,
+          cnes: cnes,
+          regiao: document.getElementById("regiao").value,
+          municipio: document.getElementById("municipio").value,
+          gestao: document.getElementById("gestao").value,
+          codigo: document.getElementById("codigo").value,
+          procedimento: proc,
+          instrumento: document.getElementById("instrumento").value,
+          quantidade: parseInt(document.getElementById("quantidade").value),
+          incremento: inc,
+          valorTotal: val,
+          valorNumerico: valNum,
+        });
+        atualizarTabela();
+        limparCampos();
+        showDialog("Sucesso", "Proposta cadastrada!");
+      });
+
+      function carregarEdicao(item, idx) {
+        if (selecionado === idx) {
+          limparCampos();
+          return;
+        }
+
+        selecionado = idx;
+        inputEstab.value = item.estabelecimento;
+        ["cnes", "regiao", "municipio", "gestao", "codigo"].forEach(
+          (k) => (document.getElementById(k).value = item[k] || "")
+        );
+        inputProc.value = item.procedimento;
+        document.getElementById("instrumento").value = item.instrumento;
+        document.getElementById("quantidade").value = item.quantidade;
+
+        const pFound = sigtapData.find(
+          (x) => (x.PROCEDIMENTO || "").toString().trim() === item.procedimento
+        );
+        procSelecionado = pFound || null;
+        if (pFound) {
+          const incStr =
+            pFound["INCREMENTO_%"] ||
+            pFound.INCREMENTO ||
+            pFound["INCREMENTO_(%)"] ||
+            "0";
+          let maxInc = parseInt(incStr) || 0;
+
+          const opcoes = gerarOpcoesIncremento(maxInc);
+          setIncrementOptions(opcoes);
+        }
+
+        document.getElementById("incremento").value = item.incremento;
+        document.getElementById("valor").value = item.valorTotal;
+
+        atualizarEstadoBotoes();
+        atualizarTabela();
+      }
+
+      btnEditar.addEventListener("click", () => {
+        if (selecionado === null) return;
+        const inc = parseInt(document.getElementById("incremento").value);
+        const cnes = document.getElementById("cnes").value;
+        const proc = inputProc.value;
+        const duplicado = cadastrosPorAba[abaAtual].some(
+          (item, idx) =>
+            idx !== selecionado &&
+            item.cnes === cnes &&
+            item.procedimento === proc
+        );
+        if (duplicado)
+          return showDialog(
+            "Duplicidade",
+            "Já existe outro cadastro deste procedimento para este estabelecimento!"
+          );
+
+        const item = cadastrosPorAba[abaAtual][selecionado];
+        item.estabelecimento = inputEstab.value;
+        ["cnes", "regiao", "municipio", "gestao", "codigo"].forEach(
+          (k) => (item[k] = document.getElementById(k).value)
+        );
+        item.procedimento = inputProc.value;
+        item.instrumento = document.getElementById("instrumento").value;
+        item.quantidade = parseInt(document.getElementById("quantidade").value);
+        item.incremento = inc;
+
+        item.valorTotal = document.getElementById("valor").value;
+
+        // CORREÇÃO 3: Usar parseBrNumber na edição também
+        item.valorNumerico = parseBrNumber(item.valorTotal);
+
+        atualizarTabela();
+        limparCampos();
+        showDialog("Sucesso", "Editado com sucesso!");
+      });
+
+      btnExcluir.addEventListener("click", async () => {
+        if (selecionado === null) return;
+        if (await showConfirm("Excluir", "Deseja excluir este item?")) {
+          cadastrosPorAba[abaAtual].splice(selecionado, 1);
+          atualizarTabela();
+          limparCampos();
+          showDialog("Sucesso", "Excluído.");
+        }
+      });
+
+      function atualizarTabela() {
+        const tb = document.getElementById("tbody");
+        tb.innerHTML = "";
+        let qt = 0,
+          vt = 0,
+          cods = new Set();
+        cadastrosPorAba[abaAtual].forEach((c, i) => {
+          qt += c.quantidade;
+          vt += c.valorNumerico;
+          if (c.codigo) cods.add(c.codigo);
+          const tr = document.createElement("tr");
+          if (selecionado === i) {
+            tr.className = "selected-row cursor-pointer transition";
+          } else {
+            tr.className = "hover:bg-blue-50 transition cursor-pointer";
+          }
+          tr.innerHTML = `<td class="p-3 border-r">${c.estabelecimento}</td><td class="p-3 border-r">${c.cnes}</td><td class="p-3 border-r">${c.regiao}</td><td class="p-3 border-r">${c.municipio}</td><td class="p-3 border-r">${c.gestao}</td><td class="p-3 border-r">${c.codigo}</td><td class="p-3 border-r">${c.procedimento}</td><td class="p-3 border-r">${c.instrumento}</td><td class="p-3 border-r">${c.quantidade}</td><td class="p-3 border-r">${c.incremento}%</td><td class="p-3 font-semibold text-blue-900">${c.valorTotal}</td>`;
+          tr.onclick = () => carregarEdicao(c, i);
+          tb.appendChild(tr);
+        });
+        document.getElementById("sumCodigos").textContent = cods.size;
+        document.getElementById("sumQtd").textContent = qt;
+        document.getElementById("sumValor").textContent = formatCurrency(vt);
+      }
+
+      document.querySelectorAll(".tab-btn").forEach((btn) =>
+        btn.addEventListener("click", async () => {
+          const tipo = btn.dataset.tipo;
+          if (tipo === abaAtual) return;
+          if (tipo !== "convencional") {
+            if (
+              !(await showConfirm(
+                "Mudança de Aba",
+                `Aba referente a "${labelsAbas[tipo]}". Deseja mudar?`
+              ))
+            )
+              return;
+          }
+          abaAtual = tipo;
+          limparCampos();
+          atualizarTabela();
+          aplicarTemaAba();
+        })
+      );
+
+      /* --- FUNÇÃO GERAR PDF ATUALIZADA (ESTILO + CORES + CORREÇÃO SOMA) --- */
+      function gerarPDF(lista, doc) {
+        const headerLines = [
+          "GOVERNO DO ESTADO DO RIO GRANDE DO NORTE",
+          "SECRETARIA DE ESTADO DA SAÚDE PÚBLICA",
+          "COORDENADORIA DE REGULAÇÃO EM SAÚDE E AVALIAÇÃO",
+          "SUBCOORDENADORIA DE REGULAÇÃO DA ATENÇÃO E CONTRATUALIZAÇÃO DOS SERVIÇOS DE SAÚDE",
+          "NÚCLEO DE MONITORAMENTO E AVALIAÇÃO EM SAÚDE",
+        ];
+
+        // Barra azul marinho
+        doc.setFillColor(0, 51, 102);
+        doc.rect(14, 40, 269, 7, "F");
+
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255, 255, 255);
+        doc.text("RELATÓRIO DE PROPOSTA DETALHADO", 148.5, 45, {
+          align: "center",
+        });
+
+        doc.setTextColor(0);
+
+        doc.autoTable({
+          head: [
+            [
+              "Estabelecimento de Saúde",
+              "CNES",
+              "Código",
+              "Procedimento",
+              "Qtd",
+              "Inc.",
+              "Valor Total",
+            ],
+          ],
+          body: lista.map((i) => [
+            i.estabelecimento,
+            i.cnes,
+            i.codigo,
+            i.procedimento,
+            i.quantidade,
+            i.incremento + "%",
+            i.valorTotal,
+          ]),
+          startY: 50,
+          theme: "grid",
+          styles: {
+            fontSize: 8,
+            font: "helvetica",
+            cellPadding: 2,
+            overflow: "linebreak",
+            valign: "middle",
+            halign: "center",
+            textColor: 0,
+          },
+          headStyles: {
+            fillColor: [173, 216, 230], // Azul Claro
+            textColor: 0,
+            fontStyle: "bold",
+            halign: "center",
+          },
+          columnStyles: {
+            0: { cellWidth: 70, halign: "left" },
+            3: { cellWidth: 80, halign: "left" },
+          },
+          didDrawPage: function (data) {
+            // HEADER
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(0);
+            let yPos = 12;
+            headerLines.forEach((line) => {
+              const textWidth = doc.getTextWidth(line);
+              const xPos = (doc.internal.pageSize.width - textWidth) / 2;
+              doc.text(line, xPos, yPos);
+              yPos += 5;
+            });
+
+            // FOOTER
+            const pageSize = doc.internal.pageSize;
+            const pageHeight = pageSize.height
+              ? pageSize.height
+              : pageSize.getHeight();
+            const pageWidth = pageSize.width
+              ? pageSize.width
+              : pageSize.getWidth();
+            doc.setDrawColor(150);
+            doc.line(14, pageHeight - 18, pageWidth - 14, pageHeight - 18);
+
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "bold");
+            doc.text(
+              "SISTEMA DE GESTÃO DE CIRURGIAS ELETIVAS",
+              pageWidth / 2,
+              pageHeight - 12,
+              { align: "center" }
+            );
+
+            doc.setFont("helvetica", "normal");
+            doc.text(
+              `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
+              14,
+              pageHeight - 12
+            );
+            doc.text(
+              "Página " + doc.internal.getNumberOfPages(),
+              pageWidth - 14,
+              pageHeight - 12,
+              { align: "right" }
+            );
+          },
+        });
+
+        let finalY = doc.lastAutoTable.finalY + 15;
+        if (finalY > 160) {
+          doc.addPage();
+          finalY = 50;
+        }
+
+        // Barra azul marinho para o consolidado
+        doc.setFillColor(0, 51, 102);
+        doc.rect(14, finalY, 269, 7, "F");
+
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255);
+        doc.text("RELATÓRIO DE PROPOSTA CONSOLIDADO", 148.5, finalY + 5, {
+          align: "center",
+        });
+
+        finalY += 10;
+        doc.setTextColor(0);
+
+        const sumQtd = lista.reduce((a, b) => a + b.quantidade, 0);
+        const sumVal = lista.reduce((a, b) => a + b.valorNumerico, 0);
+        const uniqueCodes = new Set(lista.map((i) => i.codigo)).size;
+
+        doc.setDrawColor(0);
+        doc.setFillColor(173, 216, 230); // Azul Claro
+        doc.rect(14, finalY, 269, 15, "FD");
+
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0);
+
+        doc.text(`Qtd. Procedimentos: ${sumQtd}`, 30, finalY + 10);
+        doc.text(`Códigos Únicos: ${uniqueCodes}`, 130, finalY + 10);
+        doc.text(`Valor Total: ${formatCurrency(sumVal)}`, 230, finalY + 10);
+
+        // ASSINATURAS
+        finalY += 40;
+        if (finalY > 180) {
+          doc.addPage();
+          finalY = 60;
+        }
+
+        doc.setDrawColor(0);
+        doc.line(40, finalY, 120, finalY); // Linha 1
+        doc.line(170, finalY, 250, finalY); // Linha 2
+
+        doc.setFontSize(8);
+        doc.text(
+          "Assinatura do Responsável do Estabelecimento de Saúde",
+          80,
+          finalY + 5,
+          { align: "center" }
+        );
+        doc.text(
+          "Assinatura do Responsável do Comitê de Cirurgias Eletivas",
+          210,
+          finalY + 5,
+          { align: "center" }
+        );
+
+        return doc;
+      }
+
+      document
+        .getElementById("btnExportar")
+        .addEventListener("click", async () => {
+          showDialog("Gerando ZIP", "Aguarde...");
+          try {
+            const lista = [];
+            Object.keys(cadastrosPorAba).forEach((k) =>
+              cadastrosPorAba[k].forEach((i) =>
+                lista.push({ ...i, tipo: k.toUpperCase() })
+              )
+            );
+            if (!lista.length) {
+              closeModal();
+              return showDialog("Vazio", "Sem dados.");
+            }
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(
+              lista.map((i) => ({
+                ...i,
+                valorNumerico: undefined,
+                id: undefined,
+              }))
+            );
+            XLSX.utils.book_append_sheet(wb, ws, "Propostas");
+
+            const zip = new JSZip();
+            zip.file(
+              "propostas.xlsx",
+              XLSX.write(wb, { type: "base64", bookType: "xlsx" }),
+              { base64: true }
+            );
+            zip.file("propostas.json", JSON.stringify(lista, null, 2));
+
+            const { jsPDF } = window.jspdf;
+            let pdfDoc = new jsPDF({ orientation: "landscape" });
+            pdfDoc = gerarPDF(lista, pdfDoc);
+
+            zip.file("relatorio_geral.pdf", pdfDoc.output("blob"));
+
+            saveAs(
+              await zip.generateAsync({ type: "blob" }),
+              "propostas_sigcel.zip"
+            );
+            closeModal();
+            showDialog("Sucesso", "Download iniciado.");
+          } catch (e) {
+            closeModal();
+            showDialog("Erro", e.message);
+          }
+        });
+
+      document
+        .getElementById("btnExportarPDF")
+        .addEventListener("click", () => {
+          const lista = cadastrosPorAba[abaAtual];
+          if (!lista.length) return showDialog("Vazio", "Sem dados.");
+          const { jsPDF } = window.jspdf;
+          let pdf = new jsPDF({ orientation: "landscape" });
+          pdf = gerarPDF(lista, pdf);
+          pdf.save(`relatorio_${abaAtual}.pdf`);
+        });
+
+      atualizaOpcoesIncrementoDefault();
+      aplicarTemaAba();
+      atualizarEstadoBotoes();
+    </script>
+  </body>
+</html>
