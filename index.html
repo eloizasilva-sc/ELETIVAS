@@ -466,6 +466,11 @@
     </div>
 
     <script>
+      /* --- DADOS EMBUTIDOS --- */
+      const CNES_EMBEDDED = [{"ESTABELECIMENTO":"SANTA CASA DE MISERICÓRDIA DE CURRAIS NOVOS","CNES":"7960547","MUNICIPIO":"CURRAIS NOVOS","REGIAO_DE_SAUDE":"SERIDÓ","GESTAO":"MUNICIPAL"},{"ESTABELECIMENTO":"HOSPITAL ESTADUAL DE CAICÓ","CNES":"2038154","MUNICIPIO":"CAICÓ","REGIAO_DE_SAUDE":"SERIDÓ","GESTAO":"ESTADUAL"}];
+      
+      const SIGTAP_EMBEDDED = [{"CODIGO":"0101010","PROCEDIMENTO":"CONSULTA/ATENDIMENTO - PRIMEIRA VEZ","VALOR":"85.30","INSTRUMENTO_DE_REGISTRO":"AIH","INCREMENTO_(%)":"0"},{"CODIGO":"0101020","PROCEDIMENTO":"CONSULTA/ATENDIMENTO - RETORNO","VALOR":"42.65","INSTRUMENTO_DE_REGISTRO":"AIH","INCREMENTO_(%)":"10"}];
+
       /* --- VARS --- */
       let cnesData = [];
       let sigtapData = [];
@@ -1445,7 +1450,36 @@
       atualizaOpcoesIncrementoDefault();
       aplicarTemaAba();
       atualizarEstadoBotoes();
+
+      /* --- CARREGAMENTO AUTOMÁTICO DOS DADOS EMBUTIDOS --- */
+      function carregarDadosEmbutidos() {
+        // Carregar CNES
+        cnesData = CNES_EMBEDDED.map(normalizeKeys);
+        const lblCNES = document.getElementById("lblCNES");
+        lblCNES.className = "group flex items-center gap-2 px-3 py-2 rounded-lg shadow cursor-pointer transition bg-green-600 text-white hover:shadow-lg";
+        lblCNES.querySelector("svg").classList.add("text-white");
+        
+        // Carregar SIGTAP
+        sigtapData = SIGTAP_EMBEDDED.map(normalizeKeys);
+        const lblSIGTAP = document.getElementById("lblSIGTAP");
+        lblSIGTAP.className = "group flex items-center gap-2 px-3 py-2 rounded-lg shadow cursor-pointer transition bg-green-600 text-white hover:shadow-lg";
+        lblSIGTAP.querySelector("svg").classList.add("text-white");
+        
+        // Preencher datalist de procedimentos
+        const dl = document.getElementById("listaProc");
+        dl.innerHTML = "";
+        const unicos = [...new Set(sigtapData.map(x => (x.PROCEDIMENTO || "").toString().trim()))].sort();
+        unicos.forEach((nome) => {
+          if (nome) {
+            const opt = document.createElement("option");
+            opt.value = nome;
+            dl.appendChild(opt);
+          }
+        });
+      }
+      
+      // Executar carregamento automático
+      carregarDadosEmbutidos();
     </script>
   </body>
 </html>
-
